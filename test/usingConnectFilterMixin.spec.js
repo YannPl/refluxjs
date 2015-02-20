@@ -1,13 +1,15 @@
 var assert = require('chai').assert,
     sinon = require('sinon'),
-    connect = require('../src/connect'),
+    connectFilter = require('../src/connectFilter'),
     _ = require('../src/utils'),
     Reflux = require('../src');
 
-describe('using the connect(...) mixin',function(){
+var dummyFilter = function(value) { return value.slice(0,2); };
+
+describe('using the connectFilter(...) mixin',function(){
 
     it("should be exposed in Reflux",function(){
-        assert.equal(connect, Reflux.connect);
+        assert.equal(connectFilter, Reflux.connectFilter);
     });
 
     describe("when calling with action",function() {
@@ -15,7 +17,7 @@ describe('using the connect(...) mixin',function(){
                 listen: sinon.spy()
             },
             context = {setState: sinon.spy()};
-        _.extend(context,connect(listenable));
+        _.extend(context,connectFilter(listenable, dummyFilter));
 
         it("should pass empty object to state",function(){
             assert.deepEqual({},context.getInitialState());
@@ -29,7 +31,7 @@ describe('using the connect(...) mixin',function(){
                 getInitialState: sinon.stub().returns(initialstate)
             },
             context = {setState: sinon.spy()},
-            result = _.extend(context,connect(listenable));
+            result = _.extend(context,connectFilter(listenable, dummyFilter));
 
         it("should add getInitialState and componentDidMount and WillUnmount",function(){
             assert.isFunction(context.getInitialState);
@@ -39,14 +41,14 @@ describe('using the connect(...) mixin',function(){
         });
 
         it("should pass initial state to state",function(){
-            assert.deepEqual(initialstate,context.getInitialState());
+            assert.deepEqual(initialstate.slice(0,2),context.getInitialState());
         });
 
         result.componentDidMount();
 
         it("should call listen on the listenable correctly",function(){
             assert.equal(1,listenable.listen.callCount);
-            assert.equal(context.setState,listenable.listen.firstCall.args[0]);
+            assert.isFunction(listenable.listen.firstCall.args[0]);
             assert.equal(context,listenable.listen.firstCall.args[1]);
         });
 
@@ -65,10 +67,10 @@ describe('using the connect(...) mixin',function(){
                 getInitialState: sinon.stub().returns(initialstate)
             },
             context = {setState: sinon.spy()},
-            result = _.extend(context,connect(listenable,key));
+            result = _.extend(context,connectFilter(listenable,key,dummyFilter));
 
         it("should pass initial state to state correctly",function(){
-            assert.deepEqual({KEY:initialstate},context.getInitialState());
+            assert.deepEqual({KEY:initialstate.slice(0,2)},context.getInitialState());
         });
 
         result.componentDidMount();
@@ -81,7 +83,7 @@ describe('using the connect(...) mixin',function(){
 
         it("should send listenable callback which calls setState correctly",function(){
             listenable.listen.firstCall.args[0](triggerdata);
-            assert.deepEqual([_.object([key],[triggerdata])],context.setState.firstCall.args);
+            assert.deepEqual([_.object([key],[triggerdata.slice(0,2)])],context.setState.firstCall.args);
         });
     });
     describe("when calling with falsy key",function(){
@@ -89,11 +91,12 @@ describe('using the connect(...) mixin',function(){
             key = 0,
             listenable = {listen: sinon.spy()},
             context = {setState: sinon.spy()},
-            result = _.extend(context,connect(listenable,key));
+            result = _.extend(context,connectFilter(listenable,key,dummyFilter));
         result.componentDidMount();
         it("should send listenable callback which calls setState correctly",function(){
             listenable.listen.firstCall.args[0](triggerdata);
-            assert.deepEqual([_.object([key],[triggerdata])],context.setState.firstCall.args);
+            assert.deepEqual([_.object([key],[triggerdata.slice(0,2)])],context.setState.firstCall.args);
         });
     });
 });
+

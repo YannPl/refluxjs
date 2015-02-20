@@ -12,6 +12,8 @@ exports.createStore = require('./createStore');
 
 exports.connect = require('./connect');
 
+exports.connectFilter = require('./connectFilter');
+
 exports.ListenerMixin = require('./ListenerMixin');
 
 exports.listenTo = require('./listenTo');
@@ -29,17 +31,21 @@ exports.joinStrict = maker("strict");
 
 exports.joinConcat = maker("all");
 
+var _ = require('./utils');
 
 /**
  * Convenience function for creating a set of actions
  *
- * @param actionNames the names for the actions to be created
+ * @param definitions the definitions for the actions to be created
  * @returns an object with actions of corresponding action names
  */
-exports.createActions = function(actionNames) {
-    var i = 0, actions = {};
-    for (; i < actionNames.length; i++) {
-        actions[actionNames[i]] = exports.createAction();
+exports.createActions = function(definitions) {
+    var actions = {};
+    for (var k in definitions){
+        var val = definitions[k],
+            actionName = _.isObject(val) ? k : val;
+
+        actions[actionName] = exports.createAction(val);
     }
     return actions;
 };
@@ -51,6 +57,25 @@ exports.setEventEmitter = function(ctx) {
     var _ = require('./utils');
     _.EventEmitter = ctx;
 };
+
+
+/**
+ * Sets the Promise library that Reflux uses
+ */
+exports.setPromise = function(ctx) {
+    var _ = require('./utils');
+    _.Promise = ctx;
+};
+
+/**
+ * Sets the Promise factory that creates new promises
+ * @param {Function} factory has the signature `function(resolver) { return [new Promise]; }`
+ */
+exports.setPromiseFactory = function(factory) {
+    var _ = require('./utils');
+    _.createPromise = factory;
+};
+
 
 /**
  * Sets the method used for deferring actions and stores

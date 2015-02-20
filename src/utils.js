@@ -31,8 +31,12 @@ exports.nextTick = function(callback) {
     setTimeout(callback, 0);
 };
 
+exports.capitalize = function(string){
+    return string.charAt(0).toUpperCase()+string.slice(1);
+};
+
 exports.callbackName = function(string){
-    return "on"+string.charAt(0).toUpperCase()+string.slice(1);
+    return "on"+exports.capitalize(string);
 };
 
 exports.object = function(keys,vals){
@@ -43,9 +47,14 @@ exports.object = function(keys,vals){
     return o;
 };
 
+exports.Promise = require("native-promise-only");
+
+exports.createPromise = function(resolver) {
+    return new exports.Promise(resolver);
+};
+
 exports.isArguments = function(value) {
-    return value && typeof value == 'object' && typeof value.length == 'number' &&
-      (toString.call(value) === '[object Arguments]' || (hasOwnProperty.call(value, 'callee' && !propertyIsEnumerable.call(value, 'callee')))) || false;
+    return typeof value === 'object' && ('callee' in value) && typeof value.length === 'number';
 };
 
 exports.throwIf = function(val,msg){

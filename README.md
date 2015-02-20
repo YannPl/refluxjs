@@ -22,6 +22,18 @@ You can read an overview of Flux [here](http://facebook.github.io/react/docs/flu
 
 The pattern is composed of actions and data stores, where actions initiate new data to pass through data stores before coming back to the view components again. If a view component has an event that needs to make a change in the application's data stores, they need to do so by signalling to the stores through the actions available.
 
+## Content
+
+- [Comparing RefluxJS with Facebook Flux](#comparing-refluxjs-with-facebook-flux)
+- [Examples](#examples)
+- [Installation](#installation)
+- [Usage](#usage)
+     - [Actions](#creating-actions)
+     - [Stores](#creating-data-stores)
+     - [Component](#react-component-example)
+- [Advanced Usage](#advanced-usage)
+- [Colophon](#colophon)
+
 ## Comparing RefluxJS with Facebook Flux
 
 The goal of the refluxjs project is to get this architecture easily up and running in your web application, both client-side or server-side. There are some differences between how this project works and how Facebook's proposed Flux architecture works:
@@ -38,21 +50,27 @@ Some concepts are still in Reflux in comparison with Flux:
 
 ### Differences with Flux
 
-Reflux has refactored Flux to be a bit more dynamic and be more FRP friendly:
+Reflux has refactored Flux to be a bit more dynamic and be more Functional Reactive Programming (FRP) friendly:
 
 * The singleton dispatcher is removed in favor for letting every action act as dispatcher instead.
-* Because actions are listenable, the stores may listen to them. Stores don't need to have a big switch statements that does static type checking (of action types) with strings
+* Because actions are listenable, the stores may listen to them. Stores don't need to have big switch statements that do static type checking (of action types) with strings
 * Stores may listen to other stores, i.e. it is possible to create stores that can *aggregate data further*, similar to a map/reduce.
 * `waitFor` is replaced in favor to handle *serial* and *parallel* data flows:
  * **Aggregate data stores** (mentioned above) may listen to other stores in *serial*
  * **Joins** for joining listeners in *parallel*
 * *Action creators* are not needed because RefluxJS actions are functions that will pass on the payload they receive to anyone listening to them
 
+[Back to top](#content)
+
 ## Examples
 
 You can find some example projects at these locations:
 
 * [Todo Example Project](https://github.com/spoike/refluxjs-todo) - [http://spoike.github.io/refluxjs-todo/](http://spoike.github.io/refluxjs-todo/)
+* [Hacker News Clone](https://github.com/echenley/react-news) by echenley
+* [Another Todo Project with a Python backend](https://github.com/limelights/todo-reflux) by limelights
+
+[Back to top](#content)
 
 ## Installation
 
@@ -74,9 +92,13 @@ The following command installs reflux as a bower component that can be used in t
 
 Like React, Reflux depends on an es5-shim for older browsers. The es5-shim.js from [kriskowal's es5-shim](https://github.com/kriskowal/es5-shim) provides everything required.
 
+[Back to top](#content)
+
 ## Usage
 
 For a full example check the [`test/index.js`](test/index.js) file.
+
+[Back to top](#content)
 
 ### Creating actions
 
@@ -109,6 +131,99 @@ var Actions = Reflux.createActions([
 // that may be invoked as usual
 
 Actions.statusUpdate();
+```
+
+#### Asynchronous actions
+
+For actions that represent asynchronous operations (e.g. API calls), a few separate dataflows result from the operation. In the most typical case, we consider completion and failure of the operation. To create related actions for these dataflows, which you can then access as attributes, use `options.children`.
+
+```javascript
+// this creates 'load', 'load.completed' and 'load.failed'
+var Actions = Reflux.createActions({
+    "load": {children: ["completed","failed"]}
+});
+
+// when 'load' is triggered, call async operation and trigger related actions
+Actions.load.listen( function() {
+    // By default, the listener is bound to the action
+    // so we can access child actions using 'this'
+    someAsyncOperation()
+        .then( this.completed )
+        .catch( this.failed );
+});
+```
+
+There is a shorthand to define the `completed` and `failed` actions in the typical case: `options.asyncResult`. The following are equivalent:
+
+```javascript
+createAction({
+    children: ["progressed","completed","failed"]
+});
+
+createAction({
+    asyncResult: true,
+    children: ["progressed"]
+});
+```
+
+There are a couple of helper methods available to trigger the `completed` and `failed` actions:
+
+* `promise` - Expects a promise object and binds the triggers of the `completed` and `failed` child actions to that promise, using `then()` and `catch()`.
+
+* `listenAndPromise` - Expects a function that returns a promise object, which is called when the action is triggered, after which `promise` is called with the returned promise object. Essentially calls the function on trigger of the action, which then triggers the `completed` or `failed` child actions after the promise is fulfilled.
+
+Therefore, the following are all equivalent:
+
+```javascript
+asyncResultAction.listen( function(arguments) {
+    someAsyncOperation(arguments)
+        .then(asyncResultAction.completed)
+        .catch(asyncResultAction.failed);
+});
+
+asyncResultAction.listen( function(arguments) {
+    asyncResultAction.promise( someAsyncOperation(arguments) );
+});
+
+asyncResultAction.listenAndPromise( someAsyncOperation );
+```
+
+##### Asynchronous actions as Promises
+
+Asynchronous actions can used as promises, which is particularly useful for server-side rendering when you must await the successful (or failed) completion of an action before rendering.
+
+Suppose you had an action + store to make an API request:
+
+```javascript
+// Create async action with `completed` & `failed` children
+var makeRequest = Reflux.createAction({ asyncResult: true });
+
+var RequestStore = Reflux.createStore({
+    init: function() {
+        this.listenTo(makeRequest, 'onMakeRequest');
+    },
+
+    onMakeRequest: function(url) {
+        // Assume `request` is some HTTP library (e.g. superagent)
+        request(url, function(response) {
+            if (response.ok) {
+                makeRequest.completed(response.body);
+            } else {
+                makeRequest.failed(response.error);
+            }
+        })
+    }
+});
+```
+
+Then, on the server, you could use promises to make the request and either render or serve an error:
+
+```javascript
+makeRequest('/api/something').then(function(body) {
+    // Render the response body
+}).catch(function(err) {
+    // Handle the API error object
+});
 ```
 
 #### Action hooks
@@ -154,6 +269,8 @@ Actions.statusUpdate.exampleMethod('arg1');
 // Should output: 'arg1'
 ```
 
+[Back to top](#content)
+
 ### Creating data stores
 
 Create a data store much like ReactJS's own `React.createClass` by passing a definition object to `Reflux.createStore`. You may set up all action listeners in the `init` function and register them by calling the store's own `listenTo` function.
@@ -196,6 +313,33 @@ Reflux.StoreMethods.exampleMethod = function() { console.log(arguments); };
 statusStore.exampleMethod('arg1');
 // Should output: 'arg1'
 ```
+
+#### Mixins in stores
+
+Just as you can add mixins to React components, so it is possible to add your mixins to Store.
+
+```javascript
+var MyMixin = { foo: function() { console.log('bar!'); } }
+var Store = Reflux.createStore({
+    mixins: [MyMixin]
+});
+Store.foo(); // outputs "bar!" to console
+```
+
+Methods from mixins are available as well as the methods declared in the Store. So it's possible to access store's `this` from mixin, or methods of mixin from methods of store:
+
+```javascript
+var MyMixin = { mixinMethod: function() { console.log(this.foo); } }
+var Store = Reflux.createStore({
+    mixins: [MyMixin],
+    foo: 'bar!',
+    storeMethod: function() {
+        this.mixinMethod(); // outputs "bar!" to console
+    }
+});
+```
+
+A nice feature of mixins is that if a store is using multiple mixins and several mixins define the same lifecycle method (e.g. `init`, `preEmit`, `shouldEmit`), all of the lifecycle methods are guaranteed to be called.
 
 #### Listening to many actions at once
 
@@ -295,6 +439,9 @@ With the setup above this will output the following in the console:
 status:  ONLINE
 status:  OFFLINE
 ```
+
+[Back to top](#content)
+
 ### React component example
 
 Register your component to listen for changes in your data stores, preferably in the `componentDidMount` [lifecycle method](http://facebook.github.io/react/docs/component-specs.html) and unregister in the `componentWillUnmount`, like this:
@@ -379,6 +526,27 @@ var Status = React.createClass({
 });
 ```
 
+#### Using Reflux.connectFilter
+
+`Reflux.connectFilter` is used in a similar manner to `Reflux.connect`. Use the
+`connectFilter` mixin when you want only a subset of the items in a store. A
+blog written using Reflux would probably have a store with all posts in
+it. For an individual post page, you could use `Reflux.connectFilter` to
+filter the posts to the post that's being viewed.
+
+```javascript
+var PostView = React.createClass({
+    mixins: [Reflux.connectFilter(postStore, "post", function(posts) {
+        return posts.filter(function(post) {
+           return post.id === this.props.id;
+        }.bind(this))[0];
+    })],
+    render: function() {
+        // render using `this.state.post`
+    }
+});
+```
+
 ### Listening to changes in other data stores (aggregate data stores)
 
 A store may listen to another store's change, making it possible to safely chain stores for aggregated data without affecting other parts of the application. A store may listen to other stores using the same `listenTo` function as with actions:
@@ -406,6 +574,9 @@ var statusHistoryStore = Reflux.createStore({
 
 });
 ```
+
+[Back to top](#content)
+
 ## Advanced usage
 
 ### Switching EventEmitter
@@ -416,6 +587,30 @@ Don't like to use the EventEmitter provided? You can switch to another one, such
 // Do this before creating actions or stores
 
 Reflux.setEventEmitter(require('events').EventEmitter);
+```
+
+### Switching Promise library
+
+Don't like to use the Promise library provided? You can switch to another one, such as [Bluebird](https://github.com/petkaantonov/bluebird/) like this:
+
+```javascript
+// Do this before triggering actions
+
+Reflux.setPromise(require('bluebird'));
+```
+
+*Note that promises are constructed with `new Promise(...)`.  If your Promise library uses factories (e.g. `Q`), then use `Reflux.setPromiseFactory` instead.*
+
+### Switching Promise factory
+
+Since most Promise libraries use constructors (e.g. `new Promise(...)`), this is the default behavior.
+
+However, if you use `Q` or another library that uses a factory method, you can use `Reflux.setPromiseFactory` for it.
+
+```javascript
+// Do this before triggering actions
+
+Reflux.setPromiseFactory(require('Q').Promise);
 ```
 
 ### Switching nextTick
@@ -430,7 +625,7 @@ You may switch out for your favorite `setTimeout`, `nextTick`, `setImmediate`, e
 Reflux.nextTick(process.nextTick);
 ```
 
-For better alternative to `setTimeout`, you may opt to use the [`setImmediate` polyfill](https://github.com/YuzuJS/setImmediate).
+For better alternative to `setTimeout`, you may opt to use the [`setImmediate` polyfill](https://github.com/YuzuJS/setImmediate), [`setImmediate2`](https://github.com/Katochimoto/setImmediate) or [`macrotask`](https://github.com/calvinmetcalf/macrotask).
 
 
 ### Joining parallel listeners with composed listenables
@@ -501,6 +696,8 @@ this.listenTo(exampleStore, onChangeCallback, initialCallback)
 ```
 
 Remember the `listenToMany` method? In case you use that with other stores, it supports `getInitialState`. That data is sent to the normal listening callback, or a `this.on<Listenablename>Default` method if that exists.
+
+[Back to top](#content)
 
 ## Colophon
 

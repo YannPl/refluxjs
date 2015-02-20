@@ -1,10 +1,69 @@
 var chai = require('chai'),
     assert = chai.assert,
     Reflux = require('../src'),
-    sinon = require('sinon');
+    Q = require('q'),
+    sinon = require('sinon'),
+    util = require('util');
+
+chai.use(require('chai-as-promised'));
 
 describe("using the publisher methods mixin",function(){
     var pub = Reflux.PublisherMethods;
+
+    describe("the promise method",function(){
+
+        describe("when the promise completes",function(){
+            var deferred = Q.defer(),
+                promise = deferred.promise,
+                context = {
+                    children:['completed','failed'],
+                    completed:sinon.spy(),
+                    failed:sinon.spy()
+                },
+                result = pub.promise.call(context,promise);
+
+            deferred.resolve('foo');
+
+            it("should not return a value",function(){
+                assert.equal(result, undefined);
+            });
+
+            it("should call the completed child trigger",function(){
+                var args = context.completed.firstCall.args;
+                assert.deepEqual(args, ["foo"]);
+            });
+
+            it("should not call the failed child trigger",function(){
+                assert.equal(context.failed.callCount, 0);
+            });
+        });
+
+        describe("when the promise fails",function(){
+            var deferred = Q.defer(),
+                promise = deferred.promise,
+                context = {
+                    children:['completed','failed'],
+                    completed:sinon.spy(),
+                    failed:sinon.spy()
+                },
+                result = pub.promise.call(context,promise);
+
+            deferred.reject('bar');
+
+            it("should not return a value",function(){
+                assert.equal(result, undefined);
+            });
+
+            it("should call the failed child trigger",function(){
+                var args = context.failed.firstCall.args;
+                assert.deepEqual(args, ["bar"]);
+            });
+
+            it("should not the completed child trigger",function(){
+                assert.equal(context.completed.callCount, 0);
+            });
+        });
+    });
 
     describe("the listen method",function(){
         var emitter = {
@@ -265,6 +324,75 @@ describe("using the publisher methods mixin",function(){
             it("should not emit anything",function(){
                 assert.equal(emitter.emit.callCount,0);
             });
+        });
+    });
+
+    describe("the triggerPromise method",function(){
+        it("should require completed & failed actions", function() {
+            var contexts = [
+                { children: [] },
+                { children: ['completed'] },
+                { children: ['failed'] },
+            ];
+
+            contexts.forEach(function(context){
+                try{
+                    pub.triggerPromise.call(context);
+                    assert(false);
+                }catch(e){
+                    assert.equal(e.message, 'Publisher must have "completed" and "failed" child publishers');
+                }
+            });
+        });
+
+        it("should return a promise",function(){
+            var context = {
+                children:['completed','failed'],
+                completed:sinon.spy(),
+                failed:sinon.spy()
+            };
+
+            var promise = pub.triggerPromise.call(context);
+
+            assert(promise instanceof Promise);
+        });
+
+        it("should resolve when completed",function(){
+            var action = Reflux.createAction({ asyncResult: true });
+
+            Reflux.createStore({
+                init: function() {
+                    this.listenTo(action, this.onAction);
+                },
+                onAction: function(verb, noun) {
+                    setTimeout(function() {
+                        action.completed(util.format('%s %s completed', verb, noun));
+                    }, 10);
+                },
+            });
+
+            var promise = action.triggerPromise('do', 'something');
+
+            return assert.becomes(promise, 'do something completed');
+        });
+
+        it("should reject when failed",function(){
+            var action = Reflux.createAction({ asyncResult: true });
+
+            Reflux.createStore({
+                init: function() {
+                    this.listenTo(action, this.onAction);
+                },
+                onAction: function(verb, noun) {
+                    setTimeout(function() {
+                        action.failed(util.format('%s %s faiiled', verb, noun));
+                    }, 10);
+                },
+            });
+
+            var promise = action.triggerPromise('do', 'something');
+
+            return assert.isRejected(promise, 'do something failed');
         });
     });
 });

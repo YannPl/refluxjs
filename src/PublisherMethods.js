@@ -32,6 +32,7 @@ module.exports = {
      * @returns {Function} Callback that unsubscribes the registered event handler
      */
     listen: function(callback, bindContext) {
+        bindContext = bindContext || this;
         var eventHandler = function(args) {
             callback.apply(bindContext, args);
         }, me = this;
@@ -39,6 +40,54 @@ module.exports = {
         return function() {
             me.emitter.removeListener(me.eventLabel, eventHandler);
         };
+    },
+
+    /**
+     * Attach handlers to promise that trigger the completed and failed
+     * child publishers, if available.
+     *
+     * @param {Object} The promise to attach to
+     */
+    promise: function(promise) {
+        var me = this;
+
+        var canHandlePromise =
+            this.children.indexOf('completed') >= 0 &&
+            this.children.indexOf('failed') >= 0;
+
+        if (!canHandlePromise){
+            throw new Error('Publisher must have "completed" and "failed" child publishers');
+        }
+
+        promise.then(function(response) {
+            return me.completed(response);
+        });
+        // IE compatibility - catch is a reserved word - without bracket notation source compilation will fail under IE
+        promise["catch"](function(error) {
+            return me.failed(error);
+        });
+    },
+
+    /**
+     * Subscribes the given callback for action triggered, which should
+     * return a promise that in turn is passed to `this.promise`
+     *
+     * @param {Function} callback The callback to register as event handler
+     */
+    listenAndPromise: function(callback, bindContext) {
+        var me = this;
+        bindContext = bindContext || this;
+
+        return this.listen(function() {
+
+            if (!callback) {
+                throw new Error('Expected a function returning a promise but got ' + callback);
+            }
+
+            var args = arguments,
+                promise = callback.apply(bindContext, args);
+            return me.promise.call(me, promise);
+        }, bindContext);
     },
 
     /**
@@ -61,5 +110,39 @@ module.exports = {
         _.nextTick(function() {
             me.trigger.apply(me, args);
         });
-    }
+    },
+
+    /**
+     * Returns a Promise for the triggered action
+     */
+    triggerPromise: function(){
+        var me = this;
+        var args = arguments;
+
+        var canHandlePromise =
+            this.children.indexOf('completed') >= 0 &&
+            this.children.indexOf('failed') >= 0;
+
+        if (!canHandlePromise){
+            throw new Error('Publisher must have "completed" and "failed" child publishers');
+        }
+
+        var promise = _.createPromise(function(resolve, reject) {
+            var removeSuccess = me.completed.listen(function(args) {
+                removeSuccess();
+                removeFailed();
+                resolve(args);
+            });
+
+            var removeFailed = me.failed.listen(function(args) {
+                removeSuccess();
+                removeFailed();
+                reject(args);
+            });
+
+            me.triggerAsync.apply(me, args);
+        });
+
+        return promise;
+    },
 };

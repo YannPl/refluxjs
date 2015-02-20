@@ -2,6 +2,34 @@
 
 Check for latest changes on the [milestones page](https://github.com/spoike/refluxjs/milestones).
 
+## v0.2.5
+
+* Added `connectFilter` [#222](https://github.com/spoike/refluxjs/pull/222)
+* A lot of clarifications and typo fixes in documentation. [#147](https://github.com/spoike/refluxjs/pull/147), [#207](https://github.com/spoike/refluxjs/pull/207), [#208](https://github.com/spoike/refluxjs/pull/208), [#209](https://github.com/spoike/refluxjs/pull/209), [#211](https://github.com/spoike/refluxjs/pull/211), and [#214](https://github.com/spoike/refluxjs/pull/214)
+
+## v0.2.4
+
+* Promisable actions [#185](https://github.com/spoike/refluxjs/issues/185)
+* Fixed IE8 bug [#202](https://github.com/spoike/refluxjs/issues/202), [#187](https://github.com/spoike/refluxjs/issues/187)
+* Plus other various fixes: [#201](https://github.com/spoike/refluxjs/issues/201), [#200](https://github.com/spoike/refluxjs/issues/202), [#183](https://github.com/spoike/refluxjs/issues/183), and [#182](https://github.com/spoike/refluxjs/issues/182)
+
+## v0.2.3
+
+* Store mixins [#124](https://github.com/spoike/refluxjs/pull/124)
+
+## v0.2.2
+
+* Fixed circular dependency issue that caused browserify builds not to work as expected [#129](https://github.com/spoike/refluxjs/issues/129) [#138](https://github.com/spoike/refluxjs/issues/138)
+* Bind store methods before init() method executes. [#168](https://github.com/spoike/refluxjs/issues/168)
+* Clarify the meaning of "FRP". [#161](https://github.com/spoike/refluxjs/issues/161)
+* Child (async) actions and promise handling [#140](https://github.com/spoike/refluxjs/issues/140)
+
+## v0.2.1
+
+* IE8 trailing comma bug fix [#145](https://github.com/spoike/refluxjs/pull/145)
+* Multiple use of Reflux.connect bug fix [#142](https://github.com/spoike/refluxjs/issues/142), [#143](https://github.com/spoike/refluxjs/pull/143)
+* Added .npmignore file, removing non-essential files from `npm install` [#125](https://github.com/spoike/refluxjs/issues/125)
+
 ## v0.2.0
 
 * Breaking change: Set initial state before componentDidMount (in `Reflux.connect`) [#117](https://github.com/spoike/refluxjs/pull/117)

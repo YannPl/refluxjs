@@ -1,11 +1,12 @@
 {
   "name": "reflux",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "description": "A simple library for uni-directional dataflow application architecture inspired by ReactJS Flux",
-  "main": "src/index.js",
+  "main": "index.js",
   "scripts": {
     "test": "grunt test",
-    "benchmark": "node test/benchmarks"
+    "benchmark": "node test/benchmarks",
+    "build": "grunt build"
   },
   "author": "Mikael Brassman",
   "license": "BSD-3-Clause",
@@ -13,8 +14,13 @@
     "type": "git",
     "url": "http://github.com/spoike/reflux.git"
   },
+  "keywords": [
+    "react",
+    "flux"
+  ],
   "dependencies": {
-    "eventemitter3": "^0.1.2"
+    "eventemitter3": "^0.1.2",
+    "native-promise-only": "^0.7.6-a"
   },
   "devDependencies": {
     "benchmark": "^1.0.0",

@@ -2,6 +2,49 @@ var _ = require('./utils'),
     maker = require('./joins').instanceJoinCreator;
 
 /**
+ * Extract child listenables from a parent from their
+ * children property and return them in a keyed Object
+ *
+ * @param {Object} listenable The parent listenable
+ */
+var mapChildListenables = function(listenable) {
+    var i = 0, children = {}, childName;
+    for (;i < (listenable.children||[]).length; ++i) {
+        childName = listenable.children[i];
+        if(listenable[childName]){
+            children[childName] = listenable[childName];
+        }
+    }
+    return children;
+};
+
+/**
+ * Make a flat dictionary of all listenables including their
+ * possible children (recursively), concatenating names in camelCase.
+ *
+ * @param {Object} listenables The top-level listenables
+ */
+var flattenListenables = function(listenables) {
+    var flattened = {};
+    for(var key in listenables){
+        var listenable = listenables[key];
+        var childMap = mapChildListenables(listenable);
+
+        // recursively flatten children
+        var children = flattenListenables(childMap);
+
+        // add the primary listenable and chilren
+        flattened[key] = listenable;
+        for(var childKey in children){
+            var childListenable = children[childKey];
+            flattened[key + _.capitalize(childKey)] = childListenable;
+        }
+    }
+
+    return flattened;
+};
+
+/**
  * A module of methods related to listening.
  */
 module.exports = {
@@ -32,11 +75,12 @@ module.exports = {
      * @param {Object} listenables An object of listenables. Keys will be used as callback method names.
      */
     listenToMany: function(listenables){
-        for(var key in listenables){
+        var allListenables = flattenListenables(listenables);
+        for(var key in allListenables){
             var cbname = _.callbackName(key),
                 localname = this[cbname] ? cbname : this[key] ? key : undefined;
             if (localname){
-                this.listenTo(listenables[key],localname,this[cbname+"Default"]||this[localname+"Default"]||localname);
+                this.listenTo(allListenables[key],localname,this[cbname+"Default"]||this[localname+"Default"]||localname);
             }
         }
     },
@@ -127,7 +171,7 @@ module.exports = {
         defaultCallback = (defaultCallback && this[defaultCallback]) || defaultCallback;
         var me = this;
         if (_.isFunction(defaultCallback) && _.isFunction(listenable.getInitialState)) {
-            data = listenable.getInitialState();
+            var data = listenable.getInitialState();
             if (data && _.isFunction(data.then)) {
                 data.then(function() {
                     defaultCallback.apply(me, arguments);
@@ -172,5 +216,5 @@ module.exports = {
      * @param {Function|String} callback The method to call when all publishers have emitted
      * @returns {Object} A subscription obj where `stop` is an unsub function and `listenable` is an array of listenables
      */
-    joinStrict: maker("strict"),
+    joinStrict: maker("strict")
 };
